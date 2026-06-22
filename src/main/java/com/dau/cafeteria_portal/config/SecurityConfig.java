@@ -87,7 +87,7 @@ public class SecurityConfig {
             registry.addMapping("/**")
             .allowedOriginPatterns(
                 "http://localhost:3000",
-                "https://cafeteria-portal-frontend-iota.vercel.app"
+                 "https://*.vercel.app"
             )
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
