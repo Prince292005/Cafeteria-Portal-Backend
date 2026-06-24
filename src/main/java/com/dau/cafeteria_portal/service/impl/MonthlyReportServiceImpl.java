@@ -7,9 +7,11 @@ import com.dau.cafeteria_portal.dto.ReportFeedbackDTO;
 import com.dau.cafeteria_portal.entity.Canteen;
 import com.dau.cafeteria_portal.entity.Complaint;
 import com.dau.cafeteria_portal.entity.FeedbackResponse;
+import com.dau.cafeteria_portal.entity.QuickFeedback;
 import com.dau.cafeteria_portal.repository.CanteenRepository;
 import com.dau.cafeteria_portal.repository.ComplaintRepository;
 import com.dau.cafeteria_portal.repository.FeedbackResponseRepository;
+import com.dau.cafeteria_portal.repository.QuickFeedbackRepository;
 import com.dau.cafeteria_portal.service.MonthlyReportService;
 import org.springframework.stereotype.Service;
 
@@ -22,13 +24,16 @@ public class MonthlyReportServiceImpl implements MonthlyReportService {
 
     private final ComplaintRepository complaintRepository;
     private final FeedbackResponseRepository feedbackResponseRepository;
+    private final QuickFeedbackRepository quickFeedbackRepository;
     private final CanteenRepository canteenRepository;
 
     public MonthlyReportServiceImpl(ComplaintRepository complaintRepository,
                                     FeedbackResponseRepository feedbackResponseRepository,
+                                    QuickFeedbackRepository quickFeedbackRepository,
                                     CanteenRepository canteenRepository) {
         this.complaintRepository = complaintRepository;
         this.feedbackResponseRepository = feedbackResponseRepository;
+        this.quickFeedbackRepository = quickFeedbackRepository;
         this.canteenRepository = canteenRepository;
     }
 
@@ -80,6 +85,23 @@ public class MonthlyReportServiceImpl implements MonthlyReportService {
                 if (fr.getReason() != null && !fr.getReason().isBlank()) {
                     questionReasons.computeIfAbsent(qText, k -> new ArrayList<>()).add(fr.getReason());
                 }
+            }
+
+            // Fetch one-tap quick feedback (separate table — same canteen/month window)
+            // and fold it into the same maps so it shows up in the one combined report,
+            // without merging the underlying tables.
+            List<QuickFeedback> quickFeedbacks =
+                    quickFeedbackRepository.findByCanteen_CanteenIdAndCreatedAtBetween(
+                            canteen.getCanteenId(), start, end);
+
+            for (QuickFeedback qf : quickFeedbacks) {
+                // Use the optional tag as the "question" label (e.g. "Hygiene", "Staff");
+                // untagged quick taps fall under a generic "Overall Experience" bucket.
+                String label = (qf.getTag() != null && !qf.getTag().isBlank())
+                        ? qf.getTag()
+                        : "Overall Experience (Quick Feedback)";
+
+                questionRatings.computeIfAbsent(label, k -> new ArrayList<>()).add(qf.getRating());
             }
 
             // Build feedback summary
